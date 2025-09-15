@@ -1,3 +1,4 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -11,6 +12,8 @@ import 'pages/professional_detail_page.dart';
 import 'pages/chat_page.dart';
 import 'pages/psychologist_profile_page.dart';
 import 'pages/register_page.dart';
+import 'pages/patient_profile_page.dart'; // Import de la nueva página
+
 void main() {
   runApp(const MyApp());
 }
@@ -37,7 +40,7 @@ final GoRouter _router = GoRouter(
         return const PatientDashboardPage();
       },
     ),
-     GoRoute(
+    GoRoute(
       path: '/register',
       builder: (BuildContext context, GoRouterState state) {
         return const RegisterPage();
@@ -50,31 +53,27 @@ final GoRouter _router = GoRouter(
       },
     ),
 
-
-   
     // Ruta principal para la lista de profesionales
     GoRoute(
       path: '/professionals',
       builder: (BuildContext context, GoRouterState state) {
         return const ProfessionalsListPage();
       },
-    
 
       // Ruta ANIDADA para el detalle de un profesional
       routes: <RouteBase>[
-           GoRoute(
+        GoRoute(
           path: ':id',
           builder: (BuildContext context, GoRouterState state) {
             final professionalId = state.pathParameters['id']!;
             return ProfessionalDetailPage(professionalId: professionalId);
           },
-          // --- NUEVA RUTA ANIDADA PARA AGENDAR ---
+          // --- RUTA ANIDADA PARA AGENDAR ---
           routes: <RouteBase>[
             GoRoute(
               path: 'schedule', // ej: /professionals/1/schedule
               builder: (BuildContext context, GoRouterState state) {
                 final professionalId = state.pathParameters['id']!;
-                // Pasamos el nombre del profesional como un extra
                 final professionalName = state.extra as String? ?? 'Dr.';
                 return AppointmentSchedulerPage(
                   professionalId: professionalId,
@@ -85,19 +84,26 @@ final GoRouter _router = GoRouter(
           ],
         ),
       ],
-      
     ),
-      GoRoute(
+    GoRoute(
       path: '/psychologist-profile',
       builder: (BuildContext context, GoRouterState state) {
         return const PsychologistProfilePage();
       },
     ),
-     GoRoute(
+    GoRoute(
       path: '/chat/:appointmentId', // ej: /chat/106
       builder: (BuildContext context, GoRouterState state) {
         final appointmentId = state.pathParameters['appointmentId']!;
         return ChatPage(appointmentId: appointmentId);
+      },
+    ),
+
+    // --- ESTA ES LA NUEVA RUTA QUE AÑADIMOS ---
+    GoRoute(
+      path: '/patient-profile',
+      builder: (BuildContext context, GoRouterState state) {
+        return const PatientProfilePage();
       },
     ),
   ],
@@ -112,7 +118,7 @@ class MyApp extends StatelessWidget {
       routerConfig: _router,
       title: 'Psico SAS',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        primarySwatch: Colors.blue, // Puedes cambiarlo a Colors.teal
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
       debugShowCheckedModeBanner: false,

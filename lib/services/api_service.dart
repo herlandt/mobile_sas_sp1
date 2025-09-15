@@ -5,7 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/professional_model.dart';
 import '../models/schedule_model.dart';
 import '../models/appointment_model.dart';
-
+import '../models/patient_profile_model.dart';
 class ApiService {
   final String _baseUrl = "http://10.0.2.2:8000/api";
   final _storage = const FlutterSecureStorage();
@@ -274,4 +274,75 @@ class ApiService {
       return null;
     }
   }
+
+// --- REEMPLAZA LAS 3 FUNCIONES DEFECTUOSAS POR ESTAS 4 FUNCIONES CORREGIDAS ---
+
+  // 1. Obtiene el perfil completo (datos de usuario + datos de paciente anidados)
+  Future<FullPatientProfile> getPatientProfile() async {
+    final url = Uri.parse('$_baseUrl/users/profile/');
+    final headers = await getAuthHeaders();
+    final response = await http.get(url, headers: headers);
+
+    if (response.statusCode == 200) {
+      return FullPatientProfile.fromJson(
+          jsonDecode(utf8.decode(response.bodyBytes)));
+    } else {
+      print('Error al cargar perfil completo: ${response.body}');
+      throw Exception('Error al cargar el perfil');
+    }
+  }
+
+  // 2. Actualiza los datos del USUARIO (PUT a /users/profile/)
+  Future<void> updatePatientUser(Map<String, dynamic> userData) async {
+    final url = Uri.parse('$_baseUrl/users/profile/');
+    final headers = await getAuthHeaders();
+    final response = await http.put(
+      url,
+      headers: headers,
+      body: jsonEncode(userData),
+    );
+
+    if (response.statusCode != 200) {
+      print('Error al actualizar usuario: ${response.body}');
+      // Relanzamos el error para que la UI pueda atraparlo
+      throw Exception(
+          jsonDecode(utf8.decode(response.bodyBytes))['date_of_birth']?[0] ??
+              'Error al actualizar datos de usuario');
+    }
+  }
+
+  // 3. Actualiza los datos del PERFIL DE PACIENTE (PUT a /users/patient-profile/)
+  //    Esto solo funciona si el perfil YA EXISTE.
+  Future<void> updatePatientProfile(Map<String, dynamic> profileData) async {
+    final url = Uri.parse('$_baseUrl/users/patient-profile/');
+    final headers = await getAuthHeaders();
+    final response = await http.put(
+      url,
+      headers: headers,
+      body: jsonEncode(profileData),
+    );
+
+    if (response.statusCode != 200) {
+      print('Error al actualizar perfil paciente: ${response.body}');
+      throw Exception('Error al actualizar perfil de paciente');
+    }
+  }
+
+  // 4. CREA el Perfil de Paciente (POST a /users/patient-profile/)
+  //    Esto es lo que necesitamos llamar la PRIMERA VEZ.
+  Future<void> createPatientProfile(Map<String, dynamic> profileData) async {
+    final url = Uri.parse('$_baseUrl/users/patient-profile/');
+    final headers = await getAuthHeaders();
+    final response = await http.post(
+      url,
+      headers: headers,
+      body: jsonEncode(profileData),
+    );
+
+    if (response.statusCode != 201) {
+      print('Error al CREAR perfil paciente: ${response.body}');
+      throw Exception('Error al crear perfil de paciente');
+    }
+  }
+
 }

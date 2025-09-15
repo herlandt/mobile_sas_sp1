@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../services/api_service.dart';
 import '../models/appointment_model.dart'; // Importamos el modelo de citas
 import 'package:url_launcher/url_launcher.dart';
-import 'package:go_router/go_router.dart';
 
 class PatientDashboardPage extends StatefulWidget {
   const PatientDashboardPage({super.key});
@@ -37,19 +36,95 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
     _appointmentsFuture = _apiService.getMyAppointments();
   }
 
-  // --- FUNCIÓN AÑADIDA PARA REFRESCAR LA LISTA ---
+  // Función para refrescar la lista
   void _refreshAppointments() {
     setState(() {
       _appointmentsFuture = _apiService.getMyAppointments();
     });
   }
 
-  // --- FUNCIÓN MODIFICADA PARA CONSTRUIR LA LISTA DE CITAS ---// lib/pages/patient_dashboard_page.dart
+  // Helper para cerrar sesión
+  Future<void> _logout() async {
+    await _apiService.logout();
+    if (mounted) context.go('/login');
+  }
 
+  // --- ESTE ES EL MÉTODO 'BUILD' QUE FALTABA ---
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Bienvenido, $_userName'),
+        actions: [
+          // Botón de Perfil
+          IconButton(
+            icon: const Icon(Icons.person_outline),
+            tooltip: 'Mi Perfil',
+            onPressed: () {
+              // Navegamos a la nueva ruta
+              context.go('/patient-profile');
+            },
+          ),
+          // Botón de Logout
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Cerrar Sesión',
+            onPressed: _logout,
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          _refreshAppointments();
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Mis Próximas Citas',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 16),
+              FutureBuilder<List<Appointment>>(
+                future: _appointmentsFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(
+                        child: Text('Error al cargar las citas: ${snapshot.error}'));
+                  }
+                  return _buildAppointmentsList(snapshot.data ?? []);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          context.go('/professionals');
+        },
+        label: const Text('Agendar Nueva Cita'),
+        icon: const Icon(Icons.add),
+      ),
+    );
+  }
+  // --- FIN DEL MÉTODO BUILD ---
+
+
+  // Esta es tu función para construir la lista (la tenías correcta en el log)
   Widget _buildAppointmentsList(List<Appointment> appointments) {
     if (appointments.isEmpty) {
-      // ... (sin cambios)
-      return const Center(child: Padding(padding: EdgeInsets.all(20.0), child: Text('No tienes citas agendadas.', style: TextStyle(fontSize: 16, color: Colors.grey))));
+      return const Center(
+          child: Padding(
+              padding: EdgeInsets.all(20.0),
+              child: Text('No tienes citas agendadas.',
+                  style: TextStyle(fontSize: 16, color: Colors.grey))));
     }
 
     return ListView.builder(
@@ -58,17 +133,19 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
       itemCount: appointments.length,
       itemBuilder: (context, index) {
         final appointment = appointments[index];
-
         Widget trailingWidget;
 
         if (appointment.status == 'Pendiente') {
           trailingWidget = ElevatedButton(
             onPressed: () async {
-              final success = await _apiService.confirmAppointment(appointment.id);
+              final success =
+                  await _apiService.confirmAppointment(appointment.id);
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(success ? 'Has confirmado tu asistencia' : 'No se pudo confirmar'),
+                    content: Text(success
+                        ? 'Has confirmado tu asistencia'
+                        : 'No se pudo confirmar'),
                     backgroundColor: success ? Colors.green : Colors.red,
                   ),
                 );
@@ -78,37 +155,35 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
             child: const Text('Confirmar'),
           );
         } else if (appointment.status == 'Confirmada') {
-          bool hasLink = appointment.meetingLink != null && appointment.meetingLink!.isNotEmpty;
+          bool hasLink = appointment.meetingLink != null &&
+              appointment.meetingLink!.isNotEmpty;
           if (hasLink) {
-            // --- LÓGICA MODIFICADA PARA LOS BOTONES ---
             trailingWidget = Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Botón para abrir el link de la videollamada
                 IconButton(
                   icon: const Icon(Icons.videocam, color: Colors.green),
                   tooltip: 'Abrir videollamada',
                   onPressed: () async {
                     final Uri url = Uri.parse(appointment.meetingLink!);
                     if (await canLaunchUrl(url)) {
-                      await launchUrl(url, mode: LaunchMode.externalApplication);
+                      await launchUrl(url,
+                          mode: LaunchMode.externalApplication);
                     } else {
                       // ignore: use_build_context_synchronously
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('No se pudo abrir el link: ${appointment.meetingLink}')),
+                        SnackBar(
+                            content: Text(
+                                'No se pudo abrir el link: ${appointment.meetingLink}')),
                       );
                     }
                   },
                 ),
-                // Botón para ir al chat
                 IconButton(
                   icon: const Icon(Icons.chat_bubble_outline),
                   tooltip: 'Ir al chat',
                   onPressed: () {
-                    // TODO: Aquí irá la navegación a tu pantalla de chat
-                    
-                       context.go('/chat/${appointment.id}');
-                    
+                    context.go('/chat/${appointment.id}');
                   },
                 ),
               ],
@@ -123,73 +198,15 @@ class _PatientDashboardPageState extends State<PatientDashboardPage> {
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: ListTile(
-            leading: const Icon(Icons.calendar_today_outlined, color: Colors.blueAccent),
+            leading: const Icon(Icons.calendar_today_outlined,
+                color: Colors.blueAccent),
             title: Text('Cita con ${appointment.psychologistName}'),
-            subtitle: Text('${appointment.appointmentDate} a las ${appointment.startTime}'),
+            subtitle: Text(
+                '${appointment.appointmentDate} a las ${appointment.startTime}'),
             trailing: trailingWidget,
           ),
         );
       },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Bienvenido, $_userName'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Cerrar Sesión',
-            onPressed: () async {
-              await _apiService.logout();
-              if (mounted) context.go('/login');
-            },
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Dashboard del Paciente',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () {
-                context.go('/professionals');
-              },
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              child: const Text('Buscar Nuevos Psicólogos'),
-            ),
-            const Divider(height: 40),
-            Text(
-              'Mis Próximas Citas',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            FutureBuilder<List<Appointment>>(
-              future: _appointmentsFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  return const Center(child: Text('Error al cargar las citas.'));
-                }
-                return _buildAppointmentsList(snapshot.data ?? []);
-              },
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
